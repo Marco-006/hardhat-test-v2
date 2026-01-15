@@ -1,0 +1,28 @@
+{
+  "address": "0xc5a5C42992dECbae36851359345FE25997F5C42d",
+  "abi": [
+    "event AdminChanged(address,address)",
+    "event AuctionCreated(uint256 indexed,address indexed,address,uint256,uint256,uint256,uint256,address)",
+    "event AuctionEnded(uint256 indexed,address indexed,uint256)",
+    "event BeaconUpgraded(address indexed)",
+    "event BidPlaced(uint256 indexed,address indexed,uint256,address)",
+    "event Initialized(uint8)",
+    "event Upgraded(address indexed)",
+    "function admin() view returns (address)",
+    "function auctions(uint256) view returns (address,uint256,uint256,uint256,address,uint256,address,uint256,address,uint256,uint8)",
+    "function createAuction(address,uint256,uint256,uint256,uint256,address) returns (uint256)",
+    "function createAuctionSimple(address,uint256,uint256,uint256,uint256,address) returns (uint256)",
+    "function endAuction(uint256)",
+    "function getChainlinkDataFeedLatestAnswer(address) view returns (int256)",
+    "function initialize()",
+    "function nextAuctionId() view returns (uint256)",
+    "function onERC721Received(address,address,uint256,bytes) returns (bytes4)",
+    "function placeBid(uint256,uint256,address) payable",
+    "function priceFeeds(address) view returns (address)",
+    "function proxiableUUID() view returns (bytes32)",
+    "function setPriceFeed(address,address)",
+    "function upgradeTo(address)",
+    "function upgradeToAndCall(address,bytes) payable"
+  ],
+  "numDeployments": 1
+}
