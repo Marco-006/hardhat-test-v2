@@ -115,8 +115,8 @@ describe("Test create AuctionContract", function () {
     const usdcAddress = await usdc.getAddress();
     
     // 给 bidder1 和 bidder2 都 mint 足够的 USDC
-    await usdc.connect(owner).transfer(bidder1.address, ethers.parseEther("1000000"));
-    await usdc.connect(owner).transfer(bidder2.address, ethers.parseEther("1000000"));
+    await usdc.connect(owner).transfer(bidder1, ethers.parseEther("1000000"));
+    await usdc.connect(owner).transfer(bidder2, ethers.parseEther("1000000"));
 
     // 设置 PriceFeed
     const Aggregator = await ethers.getContractFactory("AggregatorV3");
