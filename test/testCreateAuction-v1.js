@@ -23,7 +23,8 @@ async function waitUntilChain(timestamp) {
 /*  =========================================================  */
 
 describe("Test create AuctionContract", function () {
-  this.timeout(120_000);
+  // this.timeout(120_000);
+  this.timeout(300_000); // 增加到5分钟
 
   it("ETH Test start...", async function () {
     // 0. 首先确保网络连接正常
@@ -136,12 +137,16 @@ describe("Test create AuctionContract", function () {
     }
 
     /* ------  3. PriceFeed 和 ERC20 ------ */
-    const TestERC20 = await ethers.getContractFactory("TestERC20");
-    const usdc = await TestERC20.deploy();
-    await usdc.waitForDeployment();
-    const usdcAddress = await usdc.getAddress();
-    console.log("get address...");
+    // const TestERC20 = await ethers.getContractFactory("TestERC20");
+    // const usdc = await TestERC20.deploy();
+    // await usdc.waitForDeployment();
+    // const usdcAddress = await usdc.getAddress();
 
+    // 解决部署erc20合约一直超时的问题
+    const usdcDeployment = await deployments.get("erc20");
+    const usdcAddress = usdcDeployment.address;
+    const usdc = await ethers.getContractAt("TestERC20", usdcDeployment.address);
+    console.log("get address...");
     
     // 给 bidder1 和 bidder2 都 mint 足够的 USDC
     await usdc.connect(owner).transfer(bidder1.address, ethers.parseEther("1000000"));

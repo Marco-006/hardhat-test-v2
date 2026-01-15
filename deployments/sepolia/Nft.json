@@ -1,5 +1,5 @@
 {
-  "address": "0xC5dc974fC25cbae9dC65c504A7bD7EC246886542",
+  "address": "0xC18550bB21073262d9cE11a0e19e9E92710cfd6f",
   "abi": [
     "constructor()",
     "error ERC721EnumerableForbiddenBatchMint()",
