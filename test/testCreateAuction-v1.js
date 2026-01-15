@@ -42,8 +42,19 @@ describe("Test create AuctionContract", function () {
 
     /* ------  2. 拍卖合约 ------ */
     const nftAuctionProxy = await deployments.get("NftAuctionProxy");
+    console.log("approve 时用的地址 =", nftAuctionProxy.address);
     const auction = await ethers.getContractAt("AuctionContract", nftAuctionProxy.address);
-    await auctionTokenInstance.connect(owner).setApprovalForAll(nftAuctionProxy.address, true);
+    const approveTx = await auctionTokenInstance.connect(owner).setApprovalForAll(nftAuctionProxy.address, true);
+    // 阻塞等待交易被区块链确认的方法
+    await approveTx.wait(); // 等待授权交易确认
+
+    // 验证授权是否成功
+    const isApproved = await auctionTokenInstance.isApprovedForAll(owner.address, nftAuctionProxy.address);
+    console.log("授权成功了吗？", isApproved);
+    if (!isApproved) {
+      throw new Error("NFT授权失败！");
+    }
+
 
     // 时间：链上当前 + 5 秒（保证 > block.timestamp）
     const startTime = (await nowOnChain()) + BigInt(60);
@@ -66,6 +77,19 @@ describe("Test create AuctionContract", function () {
     // if (!log) throw new Error("AuctionCreated事件未找到");
     // const auctionId = auction.interface.parseLog(log).args.auctionId;
     // console.log("✅ 拍卖创建成功 auctionId...:", auctionId);
+
+    /* ------  检测授权 ------ */
+    const proxyAddr = nftAuctionProxy.address;
+    console.log("proxy address        =", proxyAddr);
+    // 返回“单 Token 授权”地址
+    console.log("getApproved(1)       =", await auctionTokenInstance.getApproved(1));
+    // 返回“全库授权”布尔值（调用过 setApprovalForAll(proxy, true) 的地址）
+    console.log("isApprovedForAll(seller,proxy) =",
+                await auctionTokenInstance.isApprovedForAll(owner.address, proxyAddr));
+
+    console.log("查询时用的地址     =", proxyAddr);
+    console.log("两次地址相同？     =", nftAuctionProxy.address === proxyAddr);            
+
 
     let auctionId;
     try {
