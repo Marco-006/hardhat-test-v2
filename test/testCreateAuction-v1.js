@@ -26,8 +26,56 @@ describe("Test create AuctionContract", function () {
   this.timeout(120_000);
 
   it("ETH Test start...", async function () {
-    const [owner, bidder1, bidder2] = await ethers.getSigners();
-    console.log("网络:", network.name, "链ID:", (await ethers.provider.getNetwork()).chainId);
+    // 0. 首先确保网络连接正常
+    try {
+      const network = await ethers.provider.getNetwork();
+      console.log("网络:", network.name, "链ID:", network.chainId);
+    } catch (error) {
+      console.error("网络连接失败:", error.message);
+      throw error;
+    }
+    
+    // 1. 获取 signers，确保至少有3个
+    console.log("获取测试账户...");
+    let signers;
+    try {
+      signers = await ethers.getSigners();
+      console.log("成功获取", signers.length, "个账户");
+    } catch (error) {
+      console.error("获取账户失败:", error.message);
+      
+      // 如果在 Sepolia 上，可能需要配置账户
+      if (network.name === 'sepolia') {
+        console.log("在 Sepolia 上，检查环境变量...");
+        const privateKey = process.env.PRIVATE_KEY;
+        if (!privateKey) {
+          throw new Error("请设置 PRIVATE_KEY 环境变量");
+        }
+        const wallet = new ethers.Wallet(privateKey, ethers.provider);
+        signers = [wallet];
+        console.log("使用环境变量私钥创建钱包");
+      } else {
+        throw error;
+      }
+    }
+    
+    // 如果账户不足3个，创建测试账户
+    while (signers.length < 3) {
+      console.log("账户不足，创建测试账户...");
+      const newWallet = ethers.Wallet.createRandom().connect(ethers.provider);
+      signers.push(newWallet);
+    }
+    
+    const [owner, bidder1, bidder2] = signers;
+    console.log("Owner:", owner.address);
+    console.log("Bidder1:", bidder1.address);
+    console.log("Bidder2:", bidder2.address);
+
+    // const [owner, bidder1, bidder2] = await ethers.getSigners();
+    // console.log("Owner地址:", owner.address);
+    // console.log("Bidder1地址:", bidder1?.address || "undefined");
+    // console.log("Bidder2地址:", bidder2?.address || "undefined");
+    // console.log("网络:", network.name, "链ID:", (await ethers.provider.getNetwork()).chainId);
 
     /* ------  1. 部署 NFT ------ */
     const auctionToken = await ethers.getContractFactory("AuctionToken");
@@ -42,7 +90,6 @@ describe("Test create AuctionContract", function () {
 
     /* ------  2. 拍卖合约 ------ */
     const nftAuctionProxy = await deployments.get("NftAuctionProxy");
-    console.log("approve 时用的地址 =", nftAuctionProxy.address);
     const auction = await ethers.getContractAt("AuctionContract", nftAuctionProxy.address);
     const approveTx = await auctionTokenInstance.connect(owner).setApprovalForAll(nftAuctionProxy.address, true);
     // 阻塞等待交易被区块链确认的方法
@@ -50,7 +97,6 @@ describe("Test create AuctionContract", function () {
 
     // 验证授权是否成功
     const isApproved = await auctionTokenInstance.isApprovedForAll(owner.address, nftAuctionProxy.address);
-    console.log("授权成功了吗？", isApproved);
     if (!isApproved) {
       throw new Error("NFT授权失败！");
     }
@@ -59,13 +105,7 @@ describe("Test create AuctionContract", function () {
     // 时间：链上当前 + 5 秒（保证 > block.timestamp）
     const startTime = (await nowOnChain()) + BigInt(60);
     const duration  = BigInt(60);
-    const endTime   = startTime + duration;
-
-
-    console.log("ownerOf(1) =", await auctionTokenInstance.ownerOf(1));
-    console.log("seller     =", owner.address);
-    console.log("same?      =", (await auctionTokenInstance.ownerOf(1)) === owner.address);
-    
+    const endTime   = startTime + duration;   
 
     // 创建拍卖，起拍价 0.1 ETH
     // const createTx = await auction.connect(owner).createAuction(
@@ -77,19 +117,6 @@ describe("Test create AuctionContract", function () {
     // if (!log) throw new Error("AuctionCreated事件未找到");
     // const auctionId = auction.interface.parseLog(log).args.auctionId;
     // console.log("✅ 拍卖创建成功 auctionId...:", auctionId);
-
-    /* ------  检测授权 ------ */
-    const proxyAddr = nftAuctionProxy.address;
-    console.log("proxy address        =", proxyAddr);
-    // 返回“单 Token 授权”地址
-    console.log("getApproved(1)       =", await auctionTokenInstance.getApproved(1));
-    // 返回“全库授权”布尔值（调用过 setApprovalForAll(proxy, true) 的地址）
-    console.log("isApprovedForAll(seller,proxy) =",
-                await auctionTokenInstance.isApprovedForAll(owner.address, proxyAddr));
-
-    console.log("查询时用的地址     =", proxyAddr);
-    console.log("两次地址相同？     =", nftAuctionProxy.address === proxyAddr);            
-
 
     let auctionId;
     try {
@@ -113,11 +140,14 @@ describe("Test create AuctionContract", function () {
     const usdc = await TestERC20.deploy();
     await usdc.waitForDeployment();
     const usdcAddress = await usdc.getAddress();
+    console.log("get address...");
+
     
     // 给 bidder1 和 bidder2 都 mint 足够的 USDC
-    await usdc.connect(owner).transfer(bidder1, ethers.parseEther("1000000"));
-    await usdc.connect(owner).transfer(bidder2, ethers.parseEther("1000000"));
+    await usdc.connect(owner).transfer(bidder1.address, ethers.parseEther("1000000"));
+    await usdc.connect(owner).transfer(bidder2.address, ethers.parseEther("1000000"));
 
+    console.log("transfer...");
     // 设置 PriceFeed
     const Aggregator = await ethers.getContractFactory("AggregatorV3");
     // 1 ETH = 10,000 USD
@@ -126,6 +156,7 @@ describe("Test create AuctionContract", function () {
     const usdFeed = await Aggregator.deploy(ethers.parseEther("1"));
     await auction.setPriceFeed(ethers.ZeroAddress, await ethFeed.getAddress());
     await auction.setPriceFeed(usdcAddress, await usdFeed.getAddress());
+    console.log("PriceFeed...");
 
     /* ------  4. 出价 ------ */
     console.log("开始出价...");
