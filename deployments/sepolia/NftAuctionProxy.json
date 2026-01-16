@@ -1,5 +1,5 @@
 {
-  "address": "0x7a165672e1336A3746F98D8612DAFC4A81c6b5CA",
+  "address": "0x2E0D1b09Ae4f5e2dd36b914D56Ac7d04CE73d2B7",
   "abi": [
     "event AdminChanged(address,address)",
     "event AuctionCreated(uint256 indexed,address indexed,address,uint256,uint256,uint256,uint256,address)",

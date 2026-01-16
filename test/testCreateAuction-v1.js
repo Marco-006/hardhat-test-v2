@@ -26,16 +26,7 @@ describe("Test create AuctionContract", function () {
   // this.timeout(120_000);
   this.timeout(300_000); // 增加到5分钟
 
-  it("ETH Test start...", async function () {
-    // 0. 首先确保网络连接正常
-    try {
-      const network = await ethers.provider.getNetwork();
-      console.log("网络:", network.name, "链ID:", network.chainId);
-    } catch (error) {
-      console.error("网络连接失败:", error.message);
-      throw error;
-    }
-    
+  it("ETH Test start...", async function () {   
     // 1. 获取 signers，确保至少有3个
     console.log("获取测试账户...");
     let signers;
@@ -68,15 +59,11 @@ describe("Test create AuctionContract", function () {
     }
     
     const [owner, bidder1, bidder2] = signers;
-    console.log("Owner:", owner.address);
-    console.log("Bidder1:", bidder1.address);
-    console.log("Bidder2:", bidder2.address);
 
-    // const [owner, bidder1, bidder2] = await ethers.getSigners();
-    // console.log("Owner地址:", owner.address);
-    // console.log("Bidder1地址:", bidder1?.address || "undefined");
-    // console.log("Bidder2地址:", bidder2?.address || "undefined");
-    // console.log("网络:", network.name, "链ID:", (await ethers.provider.getNetwork()).chainId);
+    // 在代码中使用
+    console.log("检查账户余额...");
+    await ensureMinBalance(owner, bidder1);
+    await ensureMinBalance(owner, bidder2);
 
     /* ------  1. 部署 NFT ------ */
     const auctionToken = await ethers.getContractFactory("AuctionToken");
@@ -95,8 +82,6 @@ describe("Test create AuctionContract", function () {
     const approveTx = await auctionTokenInstance.connect(owner).setApprovalForAll(nftAuctionProxy.address, true);
     // 阻塞等待交易被区块链确认的方法
     await approveTx.wait(); // 等待授权交易确认
-
-    // 验证授权是否成功
     const isApproved = await auctionTokenInstance.isApprovedForAll(owner.address, nftAuctionProxy.address);
     if (!isApproved) {
       throw new Error("NFT授权失败！");
@@ -109,20 +94,10 @@ describe("Test create AuctionContract", function () {
     const endTime   = startTime + duration;   
 
     // 创建拍卖，起拍价 0.1 ETH
-    // const createTx = await auction.connect(owner).createAuction(
-    //   nftAddress, tokenId, startTime, duration, ethers.parseEther("0.1"), ethers.ZeroAddress
-    // );
-    // const receipt  = await createTx.wait();
-    // const topic    = auction.interface.getEvent("AuctionCreated").topicHash;
-    // const log      = receipt.logs.find(l => l.topics[0] === topic);
-    // if (!log) throw new Error("AuctionCreated事件未找到");
-    // const auctionId = auction.interface.parseLog(log).args.auctionId;
-    // console.log("✅ 拍卖创建成功 auctionId...:", auctionId);
-
     let auctionId;
     try {
       const createTx = await auction.connect(owner).createAuction(
-        nftAddress, tokenId, startTime, duration, ethers.parseEther("0.1"), ethers.ZeroAddress
+        nftAddress, tokenId, startTime, duration, ethers.parseEther("0.00000015"), ethers.ZeroAddress
       );
       const receipt  = await createTx.wait();
       const topic    = auction.interface.getEvent("AuctionCreated").topicHash;
@@ -137,11 +112,6 @@ describe("Test create AuctionContract", function () {
     }
 
     /* ------  3. PriceFeed 和 ERC20 ------ */
-    // const TestERC20 = await ethers.getContractFactory("TestERC20");
-    // const usdc = await TestERC20.deploy();
-    // await usdc.waitForDeployment();
-    // const usdcAddress = await usdc.getAddress();
-
     // 解决部署erc20合约一直超时的问题
     const usdcDeployment = await deployments.get("erc20");
     const usdcAddress = usdcDeployment.address;
@@ -149,8 +119,8 @@ describe("Test create AuctionContract", function () {
     console.log("get address...");
     
     // 给 bidder1 和 bidder2 都 mint 足够的 USDC
-    await usdc.connect(owner).transfer(bidder1.address, ethers.parseEther("1000000"));
-    await usdc.connect(owner).transfer(bidder2.address, ethers.parseEther("1000000"));
+    await usdc.connect(owner).transfer(bidder1.address, ethers.parseEther("100"));
+    await usdc.connect(owner).transfer(bidder2.address, ethers.parseEther("100"));
 
     console.log("transfer...");
     // 设置 PriceFeed
@@ -167,22 +137,24 @@ describe("Test create AuctionContract", function () {
     console.log("开始出价...");
     
     // 第一个出价：bidder1 用 ETH 出价
-    // 他想出价 1.5 ETH，这相当于 1.5 * 10000 = 15,000 USD
-    console.log("ETH 出价: 1.5 ETH (相当于 15,000 USD)");
+    // 他想出价 0.0015 ETH，这相当于 0.0015 * 10000 = 15 USD
+    console.log("ETH 出价: 0.000015 ETH (相当于 0.15 USD)");
     await auction.connect(bidder1).placeBid(
       auctionId, 
-      ethers.parseEther("1.5"),  // 参数 amount 会被忽略（ETH 出价时）
+      ethers.parseEther("0.000015"),  // 参数 amount 会被忽略（ETH 出价时）
       ethers.ZeroAddress, 
-      { value: ethers.parseEther("1.5") }
+      { value: ethers.parseEther("0.000015") }
     );
 
     // 第二个出价：bidder2 用 USDC 出价
     // 他想出价超过 15,000 USD，所以出价 20,000 USDC
-    await usdc.connect(bidder2).approve(nftAuctionProxy.address, ethers.MaxUint256);
-    console.log("USDC 出价: 20,000 USDC");
+    const usdcApproveTx = await usdc.connect(bidder2).approve(nftAuctionProxy.address, ethers.MaxUint256);
+    await usdcApproveTx.wait();
+
+    console.log("USDC 出价: 0.2 USDC (相当于 0.2 USD)");
     await auction.connect(bidder2).placeBid(
       auctionId, 
-      ethers.parseEther("20000"),  // 20000 USDC
+      ethers.parseEther("0.2"),  // 20000 USDC
       usdcAddress
     );
 
@@ -208,3 +180,35 @@ describe("Test create AuctionContract", function () {
     console.log("获胜金额（USD）:", 20000);
   });
 });
+
+async function ensureMinBalance(owner, signer, minBalanceETH = 0.2) {
+  const balance = await ethers.provider.getBalance(signer.address);
+  const minBalance = ethers.parseEther(minBalanceETH.toString());
+  
+  if (balance < minBalance) {
+    console.log(`${signer.address} 余额不足: ${ethers.formatEther(balance)} ETH`);
+    
+    if (network.name === 'hardhat' || network.name === 'localhost') {
+      // 本地网络直接设置余额
+      await ethers.provider.send("hardhat_setBalance", [
+        signer.address,
+        ethers.parseEther("10").toHexString()
+      ]);
+      console.log("已为本地账户设置 10 ETH");
+    } else {
+      // 测试网需要从其他账户转账或使用水龙头
+      console.log(`请手动充值，地址: ${signer.address}`);
+      console.log("或从 owner 账户转账...");
+      // 如果 owner 有足够余额，自动转账
+      const ownerBalance = await ethers.provider.getBalance(owner.address);
+      if (ownerBalance > minBalance * 2n) {
+        const tx = await owner.sendTransaction({
+          to: signer.address,
+          value: minBalance
+        });
+        await tx.wait();
+        console.log("已从 owner 转账完成");
+      }
+    }
+  }
+}
